@@ -578,6 +578,10 @@ IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARA
 
     switch (msg)
     {
+    case WM_CREATE:
+        // Some clients need to recreate the window, we need to know about the new hwnd
+        bd->hWnd = hwnd;
+        break;
     case WM_MOUSEMOVE:
     case WM_NCMOUSEMOVE:
     {

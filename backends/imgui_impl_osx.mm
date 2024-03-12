@@ -81,7 +81,13 @@ struct ImGui_ImplOSX_Data
     NSTextInputContext*         InputContext;
     id                          Monitor;
 
-    ImGui_ImplOSX_Data()        { memset(this, 0, sizeof(*this)); }
+    struct {
+        NSLock                      *lock;
+        CGFloat                     backingScaleFactor;
+        CGRect                      bounds;
+    } exclusive;
+
+    ImGui_ImplOSX_Data()        { memset(this, 0, sizeof(*this)); @autoreleasepool {this->exclusive.lock = [[NSLock alloc] init]; } }
 };
 
 static ImGui_ImplOSX_Data*      ImGui_ImplOSX_CreateBackendData()   { return IM_NEW(ImGui_ImplOSX_Data)(); }

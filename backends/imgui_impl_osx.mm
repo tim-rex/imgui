@@ -724,7 +724,6 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
             mousePoint = NSMakePoint(mousePoint.x, view.bounds.size.height - mousePoint.y);
         io.AddMouseSourceEvent(GetMouseSource(event));
         io.AddMousePosEvent((float)mousePoint.x, (float)mousePoint.y);
-
         return io.WantCaptureMouse;
     }
 
@@ -743,9 +742,7 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
         // scrollingDeltaY. When these are added to the current x and y positions of the scrolling view,
         // it appears to jump up or down. It can be observed in Preview, various JetBrains IDEs and here.
         if (event.phase == NSEventPhaseCancelled)
-        {
             return false;
-        }
 
         double wheel_dx = 0.0;
         double wheel_dy = 0.0;
@@ -776,16 +773,14 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
     if (event.type == NSEventTypeKeyDown || event.type == NSEventTypeKeyUp)
     {
         if ([event isARepeat])
-        {
-            return io.WantCaptureMouse;
-        }
+            return io.WantCaptureKeyboard;
 
         int key_code = (int)[event keyCode];
         ImGuiKey key = ImGui_ImplOSX_KeyCodeToImGuiKey(key_code);
         io.AddKeyEvent(key, event.type == NSEventTypeKeyDown);
         io.SetKeyEventNativeData(key, key_code, -1); // To support legacy indexing (<1.87 user code)
 
-        return io.WantCaptureMouse;
+        return io.WantCaptureKeyboard;
     }
 
     if (event.type == NSEventTypeFlagsChanged)
@@ -816,10 +811,7 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
                 case ImGuiKey_LeftAlt:    mask = 0x0020; break;
                 case ImGuiKey_RightAlt:   mask = 0x0040; break;
                 default:
-                {
-                    [ImGui_IO_lock unlock];
-                    return io.WantCaptureMouse;
-                }
+                    return io.WantCaptureKeyboard;
             }
 
             NSEventModifierFlags modifier_flags = [event modifierFlags];
@@ -827,7 +819,7 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
             io.SetKeyEventNativeData(key, key_code, -1); // To support legacy indexing (<1.87 user code)
         }
 
-        return io.WantCaptureMouse;
+        return io.WantCaptureKeyboard;
     }
 
     return false;

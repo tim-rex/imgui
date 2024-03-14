@@ -395,8 +395,12 @@ IMGUI_IMPL_API void ImGui_ImplOSX_NewFrame(void* _Nullable view) {
 #endif
 
 
+NSLock *ImGui_IO_lock;
+
 bool ImGui_ImplOSX_Init(NSView* view)
 {
+    ImGui_IO_lock = [[NSLock alloc] init];
+    
     ImGuiIO& io = ImGui::GetIO();
     ImGui_ImplOSX_Data* bd = ImGui_ImplOSX_CreateBackendData();
     io.BackendPlatformUserData = (void*)bd;
@@ -659,9 +663,14 @@ static ImGuiMouseSource GetMouseSource(NSEvent* event)
     }
 }
 
+
 static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
 {
     ImGuiIO& io = ImGui::GetIO();
+
+    [ImGui_IO_lock lock];
+
+    bool WantCaptureMouse = io.WantCaptureMouse;
 
     if (event.type == NSEventTypeLeftMouseDown || event.type == NSEventTypeRightMouseDown || event.type == NSEventTypeOtherMouseDown)
     {
@@ -671,7 +680,8 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
             io.AddMouseSourceEvent(GetMouseSource(event));
             io.AddMouseButtonEvent(button, true);
         }
-        return io.WantCaptureMouse;
+        [ImGui_IO_lock unlock];
+        return WantCaptureMouse;
     }
 
     if (event.type == NSEventTypeLeftMouseUp || event.type == NSEventTypeRightMouseUp || event.type == NSEventTypeOtherMouseUp)
@@ -682,7 +692,8 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
             io.AddMouseSourceEvent(GetMouseSource(event));
             io.AddMouseButtonEvent(button, false);
         }
-        return io.WantCaptureMouse;
+        [ImGui_IO_lock unlock];
+        return WantCaptureMouse;
     }
 
     if (event.type == NSEventTypeMouseMoved || event.type == NSEventTypeLeftMouseDragged || event.type == NSEventTypeRightMouseDragged || event.type == NSEventTypeOtherMouseDragged)
@@ -697,7 +708,9 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
             mousePoint = NSMakePoint(mousePoint.x, view.bounds.size.height - mousePoint.y);
         io.AddMouseSourceEvent(GetMouseSource(event));
         io.AddMousePosEvent((float)mousePoint.x, (float)mousePoint.y);
-        return io.WantCaptureMouse;
+
+        [ImGui_IO_lock unlock];
+        return WantCaptureMouse;
     }
 
     if (event.type == NSEventTypeScrollWheel)
@@ -715,7 +728,10 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
         // scrollingDeltaY. When these are added to the current x and y positions of the scrolling view,
         // it appears to jump up or down. It can be observed in Preview, various JetBrains IDEs and here.
         if (event.phase == NSEventPhaseCancelled)
+        {
+            [ImGui_IO_lock unlock];
             return false;
+        }
 
         double wheel_dx = 0.0;
         double wheel_dy = 0.0;
@@ -740,20 +756,25 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
         if (wheel_dx != 0.0 || wheel_dy != 0.0)
             io.AddMouseWheelEvent((float)wheel_dx, (float)wheel_dy);
 
-        return io.WantCaptureMouse;
+        [ImGui_IO_lock unlock];
+        return WantCaptureMouse;
     }
 
     if (event.type == NSEventTypeKeyDown || event.type == NSEventTypeKeyUp)
     {
         if ([event isARepeat])
-            return io.WantCaptureKeyboard;
+        {
+            [ImGui_IO_lock unlock];
+            return WantCaptureMouse;
+        }
 
         int key_code = (int)[event keyCode];
         ImGuiKey key = ImGui_ImplOSX_KeyCodeToImGuiKey(key_code);
         io.AddKeyEvent(key, event.type == NSEventTypeKeyDown);
         io.SetKeyEventNativeData(key, key_code, -1); // To support legacy indexing (<1.87 user code)
 
-        return io.WantCaptureKeyboard;
+        [ImGui_IO_lock unlock];
+        return WantCaptureMouse;
     }
 
     if (event.type == NSEventTypeFlagsChanged)
@@ -784,7 +805,10 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
                 case ImGuiKey_LeftAlt:    mask = 0x0020; break;
                 case ImGuiKey_RightAlt:   mask = 0x0040; break;
                 default:
-                    return io.WantCaptureKeyboard;
+                {
+                    [ImGui_IO_lock unlock];
+                    return WantCaptureMouse;
+                }
             }
 
             NSEventModifierFlags modifier_flags = [event modifierFlags];
@@ -792,9 +816,11 @@ static bool ImGui_ImplOSX_HandleEvent(NSEvent* event, NSView* view)
             io.SetKeyEventNativeData(key, key_code, -1); // To support legacy indexing (<1.87 user code)
         }
 
-        return io.WantCaptureKeyboard;
+        [ImGui_IO_lock unlock];
+        return WantCaptureMouse;
     }
 
+    [ImGui_IO_lock unlock];
     return false;
 }
 
